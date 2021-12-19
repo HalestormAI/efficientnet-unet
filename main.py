@@ -1,5 +1,7 @@
-from models.model import EffUnet
 import torch
+from model import EffUnet
+
+import torch.nn as nn
 from torchinfo import summary
 
 if __name__ == "__main__":

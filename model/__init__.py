@@ -27,8 +27,8 @@ MODELS = [
 
 BlockName = str
 
-from models.blocks import (
-    UpConv, UpsampleType
+from model.blocks import (
+    UpConv, UpsampleType, ActivatedOutputConv2d
 )
 
 
@@ -72,7 +72,7 @@ class EffUnet(nn.Module):
         self.upsample_channels = [16, 64, 128, 256, 512]
         self.upsample_ops = self._generate_upsample_ops()
 
-        self.cls_conv = nn.Conv2d(self.upsample_channels[0], num_classes, kernel_size=1)
+        self.cls_conv = ActivatedOutputConv2d(self.upsample_channels[0], num_classes)
 
     def _get_skip_channels(self) -> Dict[BlockName, int]:
         """
@@ -87,12 +87,12 @@ class EffUnet(nn.Module):
         # Now build the dictionary against block names. bc is 0-indexed, but the block names are 1-indexed.
         return {f"block_{i + 1}": b for i, b in enumerate(bc) if i + 1 in self.skipped_blocks}
 
-    def _generate_upsample_ops(self) -> Dict[BlockName, UpConv]:
+    def _generate_upsample_ops(self) -> nn.ModuleDict:
         """
         Create the operators for the decoder. Although we can't actually build this at construction time, because the
         skip connections have to be extracted using a fwd hook, we can at least build the ops here. We keep track of
         the number of channels in the previous decoder layer to make sure the input sizes are correct for the upsample.
-        TODO: Make upsample method swi tchable between convtranspose, NN and bilinear upsample.
+        TODO: Make upsample method switchable between convtranspose, NN and bilinear upsample.
         :return:
         """
         layers = {}
@@ -103,7 +103,7 @@ class EffUnet(nn.Module):
             in_channels = self.block_channels[block_name] + out_channels
             out_channels = channels.pop()
             layers[block_name] = UpConv(in_channels, out_channels, self.upsample_type, name=block_name)
-        return layers
+        return nn.ModuleDict(layers)
 
     def _register_skip_hooks(self) -> None:
         """
@@ -139,4 +139,5 @@ class EffUnet(nn.Module):
                 x = torch.cat([x, skip], dim=1)
             x = upconv(x)
 
-        return self.cls_conv(x)
+        logits = self.cls_conv(x)
+        return logits
