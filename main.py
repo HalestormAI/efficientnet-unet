@@ -34,7 +34,7 @@ def evaluate(model, dataloader, num_classes):
             total_accuracy += (targets_one_hot == pred_one_hot).sum() / pred_one_hot.numel()
 
     model.train()
-    return total_accuracy / num_batches, total_dice / num_batches
+    return total_dice / num_batches, total_accuracy / num_batches
 
 
 if __name__ == "__main__":
@@ -73,4 +73,5 @@ if __name__ == "__main__":
             optimizer.step()
             print(f"Loss: {total_loss:.5f} | CrossEntropy: {cross_entropy_loss:.5f} | DICE: {dice:.5f}")
 
-        evaluate(model, val_dataloader, num_classes)
+        val_loss, val_accuracy = evaluate(model, val_dataloader, num_classes)
+        print(f"Validation Loss: {val_loss:.5f}  |  Accuracy: {val_accuracy}")
