@@ -8,7 +8,34 @@ from torchinfo import summary
 import dataset
 from model import EffUnet
 from model.loss import DiceCoefficientLoss
+from model.utils import logits_to_onehot
 from utils import parse_args
+
+
+def evaluate(model, dataloader, num_classes):
+    model.eval()
+
+    total_accuracy = 0
+    total_dice = 0
+
+    num_batches = len(dataloader)
+
+    for inputs, targets in tqdm.tqdm(dataloader):
+        inputs = inputs.to(device)
+        targets = targets.to(device)
+
+        targets_one_hot = F.one_hot(targets, num_classes).permute(0, 3, 1, 2).float()
+
+        with torch.no_grad():
+            logits = model(inputs)
+            pred_one_hot = logits_to_onehot(logits, num_classes)
+
+            total_dice += dice_loss(pred_one_hot, targets_one_hot, multiclass=True)
+            total_accuracy += (targets_one_hot == pred_one_hot).sum() / pred_one_hot.size()
+
+    model.train()
+    return total_accuracy / num_batches, total_dice / num_batches
+
 
 if __name__ == "__main__":
     args = parse_args()
@@ -46,3 +73,5 @@ if __name__ == "__main__":
             total_loss.backward()
             optimizer.step()
             print(f"Loss: {total_loss:.5f} | CrossEntropy: {cross_entropy_loss:.5f} | DICE: {dice:.5f}")
+
+        evaluate(model, val_dataloader, num_classes)
