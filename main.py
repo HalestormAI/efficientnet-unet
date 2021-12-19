@@ -6,6 +6,7 @@ from torchvision.datasets import VOCSegmentation
 
 from dataset import get_transforms
 from model import EffUnet
+from model.loss import DiceCoefficientLoss
 
 if __name__ == "__main__":
     batch_size = 2
@@ -17,12 +18,16 @@ if __name__ == "__main__":
     train_dataset = VOCSegmentation("data/voc_2007", image_set="train", year="2007", transforms=transform)
     train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
 
-    mock_data = torch.rand((batch_size, 3, img_size, img_size), dtype=torch.float32)
+    img, smnt = next(iter(train_dataloader))
+
     model = EffUnet(4, num_classes=3)
+    optimizer = torch.optim.Adam(model.parameters(), 0.01)
+    criterion = nn.CrossEntropyLoss()
+    dice_loss = DiceCoefficientLoss()
 
-    x = model(mock_data)
+    x = model(img)
 
-    summary(model, input_size=(batch_size, 3, img_size, img_size))
+    summary(model, input_size=img.shape)
     print(x.shape)
 
     input_names = ["input_image"]
