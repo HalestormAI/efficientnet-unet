@@ -27,6 +27,10 @@ MODELS = [
 
 BlockName = str
 
+from models.blocks import (
+    UpConv, UpsampleType
+)
+
 
 class EffUnet(nn.Module):
     """
@@ -38,9 +42,15 @@ class EffUnet(nn.Module):
     https://openaccess.thecvf.com/content_CVPRW_2020/papers/w22/Baheti_Eff-UNet_A_Novel_Architecture_for_Semantic_Segmentation_in_Unstructured_Environment_CVPRW_2020_paper.pdf
     """
 
-    def __init__(self, model_size: int = 0, num_classes: int = 2, remove_bn: bool = False):
+    def __init__(self,
+                 model_size: int = 0,
+                 num_classes: int = 2,
+                 upsample_type: UpsampleType = UpsampleType.CONV_TRANSPOSE,
+                 remove_bn: bool = False):
         super().__init__()
         norm_type = nn.Identity if remove_bn else None
+
+        self.upsample_type = upsample_type
 
         # The paper implies a set of skip connections that don't actually work in reality due to repeated blocks
         # of the same scale clashing with the upsamples. The paper suggests (2,3,4,6,7), but for dimensions to agree
@@ -77,7 +87,7 @@ class EffUnet(nn.Module):
         # Now build the dictionary against block names. bc is 0-indexed, but the block names are 1-indexed.
         return {f"block_{i + 1}": b for i, b in enumerate(bc) if i + 1 in self.skipped_blocks}
 
-    def _generate_upsample_ops(self) -> Dict[BlockName, nn.Sequential]:
+    def _generate_upsample_ops(self) -> Dict[BlockName, UpConv]:
         """
         Create the operators for the decoder. Although we can't actually build this at construction time, because the
         skip connections have to be extracted using a fwd hook, we can at least build the ops here. We keep track of
@@ -87,16 +97,12 @@ class EffUnet(nn.Module):
         """
         layers = {}
         out_channels = 0
+        channels = [x for x in self.upsample_channels]
         for i in self.skipped_blocks[::-1]:
             block_name = f"block_{i}"
             in_channels = self.block_channels[block_name] + out_channels
-            out_channels = self.upsample_channels.pop()
-            layers[block_name] = nn.Sequential(
-                nn.ConvTranspose2d(in_channels,
-                                   in_channels,
-                                   kernel_size=2, stride=2),
-                nn.Conv2d(in_channels, out_channels, kernel_size=3, padding="same")
-            )
+            out_channels = channels.pop()
+            layers[block_name] = UpConv(in_channels, out_channels, self.upsample_type, name=block_name)
         return layers
 
     def _register_skip_hooks(self) -> None:
@@ -119,9 +125,10 @@ class EffUnet(nn.Module):
                 block.register_forward_hook(get_activation(f'block_{i}'))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        features = self.encoder(x)
+        x = self.encoder(x)
 
         for i in self.skipped_blocks[::-1]:
+            print(f"Adding decoder level {i}")
             block_name = f"block_{i}"
             skip = self.skip_connections[block_name]
             upconv = self.upsample_ops[block_name]
