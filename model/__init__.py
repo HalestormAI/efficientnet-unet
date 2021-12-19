@@ -46,7 +46,8 @@ class EffUnet(nn.Module):
                  model_size: int = 0,
                  num_classes: int = 2,
                  upsample_type: UpsampleType = UpsampleType.CONV_TRANSPOSE,
-                 remove_bn: bool = False):
+                 remove_bn: bool = False,
+                 activate_logits = True):
         super().__init__()
         norm_type = nn.Identity if remove_bn else None
 
@@ -72,7 +73,7 @@ class EffUnet(nn.Module):
         self.upsample_channels = [16, 64, 128, 256, 512]
         self.upsample_ops = self._generate_upsample_ops()
 
-        self.cls_conv = ActivatedOutputConv2d(self.upsample_channels[0], num_classes)
+        self.cls_conv = ActivatedOutputConv2d(self.upsample_channels[0], num_classes, activate=activate_logits)
 
     def _get_skip_channels(self) -> Dict[BlockName, int]:
         """
@@ -128,7 +129,6 @@ class EffUnet(nn.Module):
         x = self.encoder(x)
 
         for i in self.skipped_blocks[::-1]:
-            print(f"Adding decoder level {i}")
             block_name = f"block_{i}"
             skip = self.skip_connections[block_name]
             upconv = self.upsample_ops[block_name]
