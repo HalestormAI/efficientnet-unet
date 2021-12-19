@@ -31,7 +31,7 @@ def evaluate(model, dataloader, num_classes):
             pred_one_hot = logits_to_onehot(logits, num_classes)
 
             total_dice += dice_loss(pred_one_hot, targets_one_hot, multiclass=True)
-            total_accuracy += (targets_one_hot == pred_one_hot).sum() / pred_one_hot.size()
+            total_accuracy += (targets_one_hot == pred_one_hot).sum() / pred_one_hot.numel()
 
     model.train()
     return total_accuracy / num_batches, total_dice / num_batches
@@ -66,7 +66,6 @@ if __name__ == "__main__":
 
             tgt_one_hot = F.one_hot(targets, num_classes).permute(0, 3, 1, 2).float()
             cross_entropy_loss = criterion(logits, targets)
-            print("Cross entropy loss is on GPU? ", cross_entropy_loss.is_cuda)
             dice = dice_loss(logits, tgt_one_hot, multiclass=True)
             total_loss = dice + cross_entropy_loss
 
