@@ -2,25 +2,23 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from torchinfo import summary
-from torchvision.datasets import VOCSegmentation
 
-from dataset import get_transforms
+import dataset
 from model import EffUnet
 from model.loss import DiceCoefficientLoss
+from utils import parse_args
 
 if __name__ == "__main__":
-    batch_size = 2
+    args = parse_args()
 
-    img_size = 384
-
-    transform = get_transforms(img_size)
-
-    train_dataset = VOCSegmentation("data/voc_2007", image_set="train", year="2007", transforms=transform)
-    train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    train_dataset = dataset.train(args)
+    train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
 
     img, smnt = next(iter(train_dataloader))
 
-    model = EffUnet(4, num_classes=3)
+    num_classes = dataset.num_classes(args)
+
+    model = EffUnet(args.model_size, num_classes=3)
     optimizer = torch.optim.Adam(model.parameters(), 0.01)
     criterion = nn.CrossEntropyLoss()
     dice_loss = DiceCoefficientLoss()
