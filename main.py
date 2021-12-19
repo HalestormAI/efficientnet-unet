@@ -8,7 +8,6 @@ from torchinfo import summary
 import dataset
 from model import EffUnet
 from model.loss import DiceCoefficientLoss
-from model.utils import logits_to_onehot
 from utils import parse_args
 
 
@@ -28,10 +27,14 @@ def evaluate(model, dataloader, num_classes):
 
         with torch.no_grad():
             logits = model(inputs)
-            pred_one_hot = logits_to_onehot(logits, num_classes)
+
+            sig_logits = torch.sigmoid(logits)
+            predictions = sig_logits.argmax(dim=1)
+            num_correct_not_bg = (predictions[targets != 0] == targets[targets != 0]).sum()
+            total_accuracy = num_correct_not_bg / (targets != 0).sum()
+            pred_one_hot = F.one_hot(predictions, num_classes).permute(0, 3, 1, 2).float()
 
             total_dice += dice_loss(pred_one_hot, targets_one_hot, multiclass=True)
-            total_accuracy += (targets_one_hot == pred_one_hot).sum() / pred_one_hot.numel()
 
     model.train()
     return total_dice / num_batches, total_accuracy / num_batches
