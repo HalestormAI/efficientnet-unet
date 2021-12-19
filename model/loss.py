@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 
 class DiceCoefficientLoss(nn.Module):
@@ -42,7 +41,7 @@ class DiceCoefficientLoss(nn.Module):
         :return: The dice score for this pair
         """
         if self.apply_sigmoid:
-            x = F.sigmoid(x)
+            x = torch.sigmoid(x)
 
         x = x.view(-1)
         y = y.view(-1)

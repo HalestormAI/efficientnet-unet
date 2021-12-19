@@ -40,7 +40,6 @@ class UpConv(nn.Module):
         raise NotImplementedError(f"Upsampling mode of {str(upsample_type)} is not supported.")
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        print(f"Calling upsample for {self.name}")
         x = self.upsample(x)
         return self.conv(x)
 
