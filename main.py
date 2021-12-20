@@ -11,7 +11,7 @@ from model.loss import DiceCoefficientLoss
 from utils import parse_args
 
 
-def evaluate(model, dataloader, num_classes):
+def evaluate(model: nn.Module, dataloader: torch.utils.data.DataLoader, num_classes: int):
     model.eval()
 
     total_accuracy = 0
@@ -50,11 +50,15 @@ if __name__ == "__main__":
 
     num_classes = dataset.num_classes(args)
 
-    model = EffUnet(args.model_size, num_classes=num_classes, activate_logits=False, remove_bn=True)
+    model = EffUnet(args.model_size,
+                    num_classes=num_classes,
+                    activate_logits=False,
+                    remove_bn=args.remove_batchnorm,
+                    load_weights=args.pretrained_backbone)
     summary(model, input_size=(args.batch_size, 3, args.image_size, args.image_size))
     model.to(device)
 
-    optimizer = torch.optim.Adam(model.parameters(), 0.01)
+    optimizer = torch.optim.Adam(model.parameters(), args.learning_rate)
     criterion = nn.CrossEntropyLoss()
     dice_loss = DiceCoefficientLoss(apply_softmax=True)
 

@@ -1,7 +1,7 @@
 import argparse
 
 
-def parse_args():
+def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     group = parser.add_argument_group("Application parameters")
     group.add_argument("--mode", choices=("train", "infer"), required=True)
@@ -13,7 +13,16 @@ def parse_args():
     group.add_argument("--batch-size", default=8, type=int)
     group.add_argument("--image-size", default=384, type=int)
     group.add_argument("--model-size", default=4, type=int, choices=tuple(range(8)))
+    model_modifiers = group.add_mutually_exclusive_group()
+    model_modifiers.add_argument("--remove-batchnorm",
+                                 action="store_true",
+                                 help="Replace batchnorms in the backbone with identity. Note this will only work with "
+                                      "untrained models.")
+    model_modifiers.add_argument("--pretrained-backbone",
+                                 action="store_true",
+                                 help="Load the imagenet model weights from torchvision for the backbone.")
 
     group = parser.add_argument_group("Training parameters")
+    group.add_argument("--learning-rate", default=0.001, type=float)
     group.add_argument("--epochs", default=20, type=int)  # TODO: is this a sensible default?
     return parser.parse_args()

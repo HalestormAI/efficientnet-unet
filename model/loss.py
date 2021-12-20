@@ -9,7 +9,7 @@ class DiceCoefficientLoss(nn.Module):
         self.apply_softmax = apply_softmax
         self.eps = eps
 
-    def forward(self, x: torch.Tensor, y: torch.Tensor, multiclass=True):
+    def forward(self, x: torch.Tensor, y: torch.Tensor, multiclass=True) -> torch.Tensor:
         """
         If we're doing multiclass segmentation, we want to calculate dice for each channel independently and then mean-
         reduce afterwards.
@@ -33,7 +33,7 @@ class DiceCoefficientLoss(nn.Module):
             dice = self._dice(x, y)
         return 1 - dice
 
-    def _dice(self, x: torch.Tensor, y: torch.Tensor):
+    def _dice(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         """
         Calculate the DICE score for input logits, x, against labels, y.
         :param x: The estimated segmentation logits

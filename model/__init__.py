@@ -47,6 +47,7 @@ class EffUnet(nn.Module):
                  num_classes: int = 2,
                  upsample_type: UpsampleType = UpsampleType.CONV_TRANSPOSE,
                  remove_bn: bool = False,
+                 load_weights: bool = True,
                  activate_logits = True):
         super().__init__()
         norm_type = nn.Identity if remove_bn else None
@@ -60,7 +61,7 @@ class EffUnet(nn.Module):
 
         # Only need the stem, don't want to use the classifier or avg pooling at the tail of the effnet as part of this
         # model
-        effnet = MODELS[model_size](pretrained=not remove_bn, norm_type=norm_type)
+        effnet = MODELS[model_size](pretrained=load_weights, norm_type=norm_type)
         self.encoder = effnet.features[:-1]
 
         self.block_channels = self._get_skip_channels()
