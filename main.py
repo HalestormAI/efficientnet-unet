@@ -32,7 +32,7 @@ def evaluate(model: nn.Module, dataloader: torch.utils.data.DataLoader, num_clas
             sig_logits = torch.softmax(logits, dim=1)
             predictions = sig_logits.argmax(dim=1)
             num_correct_not_bg = (predictions[targets != 0] == targets[targets != 0]).sum()
-            total_accuracy = num_correct_not_bg / (targets != 0).sum()
+            total_accuracy = num_correct_not_bg / torch.count_nonzero(targets != 0)
             pred_one_hot = F.one_hot(predictions, num_classes).permute(0, 3, 1, 2).float()
 
             total_dice += dice_loss(pred_one_hot, targets_one_hot, multiclass=True)
