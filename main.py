@@ -7,7 +7,7 @@ from torchinfo import summary
 
 import dataset
 from model import EffUnet
-from model.loss import DiceCoefficientLoss
+from model.loss import DiceCoefficientLoss, JaccardLoss, get_losses
 from utils import parse_args
 
 
@@ -18,6 +18,7 @@ def evaluate(model: nn.Module, dataloader: torch.utils.data.DataLoader, num_clas
     total_dice = 0
 
     num_batches = len(dataloader)
+    dice_loss = DiceCoefficientLoss(True)
 
     for inputs, targets in tqdm.tqdm(dataloader):
         inputs = inputs.to(device)
@@ -42,6 +43,7 @@ def evaluate(model: nn.Module, dataloader: torch.utils.data.DataLoader, num_clas
 
 if __name__ == "__main__":
     args = parse_args()
+    print(args)
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -59,8 +61,7 @@ if __name__ == "__main__":
     model.to(device)
 
     optimizer = torch.optim.Adam(model.parameters(), args.learning_rate)
-    criterion = nn.CrossEntropyLoss()
-    dice_loss = DiceCoefficientLoss(apply_softmax=True)
+    _, loss_fns, loss_status_tpl = get_losses(args)
 
     for epoch in range(args.epochs):
         model.train()
@@ -71,14 +72,12 @@ if __name__ == "__main__":
             optimizer.zero_grad()
             logits = model(inputs)
 
-            tgt_one_hot = F.one_hot(targets, num_classes).permute(0, 3, 1, 2).float()
-            cross_entropy_loss = criterion(logits, targets)
-            dice = dice_loss(logits, tgt_one_hot, multiclass=True)
-            total_loss = dice + cross_entropy_loss
+            losses = [fn(logits, targets, num_classes) for fn in loss_fns]
+            total_loss = torch.stack(losses, dim=0).sum()
 
             total_loss.backward()
             optimizer.step()
-            print(f"Loss: {total_loss:.5f} | CrossEntropy: {cross_entropy_loss:.5f} | DICE: {dice:.5f}")
+            print(loss_status_tpl.format(total_loss, *losses))
 
         val_loss, val_accuracy = evaluate(model, val_dataloader, num_classes)
         print(f"Validation Loss: {val_loss:.5f}  |  Accuracy: {val_accuracy}")

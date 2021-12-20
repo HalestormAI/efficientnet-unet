@@ -1,5 +1,7 @@
 import argparse
 
+from model.loss import LossType
+
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
@@ -10,9 +12,9 @@ def parse_args() -> argparse.Namespace:
                        required=True)
 
     group = parser.add_argument_group("Model parameters")
-    group.add_argument("--batch-size", default=8, type=int)
-    group.add_argument("--image-size", default=384, type=int)
-    group.add_argument("--model-size", default=4, type=int, choices=tuple(range(8)))
+    group.add_argument("--batch-size", default=4, type=int)
+    group.add_argument("--image-size", default=224, type=int)
+    group.add_argument("--model-size", default=0, type=int, choices=tuple(range(8)))
     model_modifiers = group.add_mutually_exclusive_group()
     model_modifiers.add_argument("--remove-batchnorm",
                                  action="store_true",
@@ -24,5 +26,10 @@ def parse_args() -> argparse.Namespace:
 
     group = parser.add_argument_group("Training parameters")
     group.add_argument("--learning-rate", default=0.001, type=float)
-    group.add_argument("--epochs", default=20, type=int)  # TODO: is this a sensible default?
+    group.add_argument("--epochs", default=10, type=int)
+    group.add_argument("--losses",
+                       nargs="+",
+                       default=("jaccard", "cce"),
+                       type=LossType,
+                       choices=tuple(e for e in LossType))
     return parser.parse_args()
