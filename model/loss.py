@@ -3,10 +3,10 @@ import torch.nn as nn
 
 
 class DiceCoefficientLoss(nn.Module):
-    def __init__(self, apply_sigmoid: bool = False, eps: int = 1):
+    def __init__(self, apply_softmax: bool = False, eps: int = 1e-6):
         super().__init__()
 
-        self.apply_sigmoid = apply_sigmoid
+        self.apply_softmax = apply_softmax
         self.eps = eps
 
     def forward(self, x: torch.Tensor, y: torch.Tensor, multiclass=True):
@@ -40,8 +40,8 @@ class DiceCoefficientLoss(nn.Module):
         :param y: The labels
         :return: The dice score for this pair
         """
-        if self.apply_sigmoid:
-            x = torch.sigmoid(x)
+        if self.apply_softmax:
+            x = torch.softmax(x, dim=1)
 
         x = x.view(-1)
         y = y.view(-1)

@@ -28,7 +28,7 @@ def evaluate(model, dataloader, num_classes):
         with torch.no_grad():
             logits = model(inputs)
 
-            sig_logits = torch.sigmoid(logits)
+            sig_logits = torch.softmax(logits, dim=1)
             predictions = sig_logits.argmax(dim=1)
             num_correct_not_bg = (predictions[targets != 0] == targets[targets != 0]).sum()
             total_accuracy = num_correct_not_bg / (targets != 0).sum()
@@ -56,7 +56,7 @@ if __name__ == "__main__":
 
     optimizer = torch.optim.Adam(model.parameters(), 0.01)
     criterion = nn.CrossEntropyLoss()
-    dice_loss = DiceCoefficientLoss(apply_sigmoid=True)
+    dice_loss = DiceCoefficientLoss(apply_softmax=True)
 
     for epoch in range(args.epochs):
         model.train()
