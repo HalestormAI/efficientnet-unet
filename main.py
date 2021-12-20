@@ -7,11 +7,43 @@ from torchinfo import summary
 
 import dataset
 from model import EffUnet
-from model.loss import DiceCoefficientLoss
+from model.loss import DiceCoefficientLoss, JaccardLoss, get_losses
 from utils import parse_args
+
+
+def evaluate(model: nn.Module, dataloader: torch.utils.data.DataLoader, num_classes: int):
+    model.eval()
+
+    total_accuracy = 0
+    total_dice = 0
+
+    num_batches = len(dataloader)
+    dice_loss = DiceCoefficientLoss(True)
+
+    for inputs, targets in tqdm.tqdm(dataloader):
+        inputs = inputs.to(device)
+        targets = targets.to(device)
+
+        targets_one_hot = F.one_hot(targets, num_classes).permute(0, 3, 1, 2).float()
+
+        with torch.no_grad():
+            logits = model(inputs)
+
+            sig_logits = torch.softmax(logits, dim=1)
+            predictions = sig_logits.argmax(dim=1)
+            num_correct_not_bg = (predictions[targets != 0] == targets[targets != 0]).sum()
+            total_accuracy = num_correct_not_bg / torch.count_nonzero(targets != 0)
+            pred_one_hot = F.one_hot(predictions, num_classes).permute(0, 3, 1, 2).float()
+
+            total_dice += dice_loss(pred_one_hot, targets_one_hot, multiclass=True)
+
+    model.train()
+    return total_dice / num_batches, total_accuracy / num_batches
+
 
 if __name__ == "__main__":
     args = parse_args()
+    print(args)
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
@@ -20,13 +52,16 @@ if __name__ == "__main__":
 
     num_classes = dataset.num_classes(args)
 
-    model = EffUnet(args.model_size, num_classes=num_classes, activate_logits=False, remove_bn=True)
+    model = EffUnet(args.model_size,
+                    num_classes=num_classes,
+                    activate_logits=False,
+                    remove_bn=args.remove_batchnorm,
+                    load_weights=args.pretrained_backbone)
     summary(model, input_size=(args.batch_size, 3, args.image_size, args.image_size))
     model.to(device)
 
-    optimizer = torch.optim.Adam(model.parameters(), 0.01)
-    criterion = nn.CrossEntropyLoss()
-    dice_loss = DiceCoefficientLoss(apply_sigmoid=True)
+    optimizer = torch.optim.Adam(model.parameters(), args.learning_rate)
+    _, loss_fns, loss_status_tpl = get_losses(args)
 
     for epoch in range(args.epochs):
         model.train()
@@ -37,12 +72,12 @@ if __name__ == "__main__":
             optimizer.zero_grad()
             logits = model(inputs)
 
-            tgt_one_hot = F.one_hot(targets, num_classes).permute(0, 3, 1, 2).float()
-            cross_entropy_loss = criterion(logits, targets)
-            print("Cross entropy loss is on GPU? ", cross_entropy_loss.is_cuda)
-            dice = dice_loss(logits, tgt_one_hot, multiclass=True)
-            total_loss = dice + cross_entropy_loss
+            losses = [fn(logits, targets, num_classes) for fn in loss_fns]
+            total_loss = torch.stack(losses, dim=0).sum()
 
             total_loss.backward()
             optimizer.step()
-            print(f"Loss: {total_loss:.5f} | CrossEntropy: {cross_entropy_loss:.5f} | DICE: {dice:.5f}")
+            print(loss_status_tpl.format(total_loss, *losses))
+
+        val_loss, val_accuracy = evaluate(model, val_dataloader, num_classes)
+        print(f"Validation Loss: {val_loss:.5f}  |  Accuracy: {val_accuracy}")
